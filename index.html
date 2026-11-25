@@ -132,13 +132,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mi-amt.exp{color:var(--exp)}.mi-amt.inc{color:var(--inc)}
 .mi-fixed{font-size:10px;background:var(--s2);color:var(--t2);border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle}
 
-.dh{display:flex;align-items:baseline;gap:8px;padding:10px 2px 6px;border-bottom:1.5px solid var(--bd);margin-top:6px}
-.dh:first-child{margin-top:0}
-.dh-d{font-size:14px;font-weight:700}
+.dh{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border-radius:8px;margin-top:14px}
+.dh:first-of-type{margin-top:8px}
+.dh-d{font-size:15px;font-weight:800}
 .dh-w{font-size:11px;color:var(--t2)}
 .dh-w.sat{color:var(--acc)}.dh-w.sun{color:var(--exp)}
-.dh-s{margin-left:auto;font-size:12px;font-weight:700;color:var(--exp)}
-.dh-i{font-size:12px;font-weight:700;color:var(--inc)}
+.dh-s{margin-left:auto;font-size:14px;font-weight:800;color:var(--exp)}
+.dh-s small{font-size:10px;font-weight:600;color:var(--t2);margin-right:4px}
+.dh-i{font-size:14px;font-weight:800;color:var(--inc)}
+.dh+.mi-row,.mi-row.in-day{margin-left:12px;border-left:2px solid var(--bd);padding-left:10px}
+.mi-row.in-day .mi-amt{font-weight:500;font-size:12px}
 .mi-row.tap,.txi.tap,.fxi.tap{cursor:pointer}
 .mi-row.tap:active,.txi.tap:active,.fxi.tap:active{opacity:.6}
 .sug{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:-3px 0 9px}
@@ -410,10 +413,10 @@ function dayList(txs){
     const ex=items.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
     const inc=items.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
     h+='<div class="dh"><span class="dh-d">'+m+'/'+dd+'</span><span class="dh-w'+(w===6?' sat':w===0?' sun':'')+'">'+WD[w]+'</span>'
-      +'<span class="dh-s">'+(inc?'<span class="dh-i">+'+yen(inc)+'</span>　':'')+(ex?'－'+yen(ex):'')+'</span></div>';
+      +'<span class="dh-s"><small>合計</small>'+(inc?'<span class="dh-i">+'+yen(inc)+'</span>　':'')+(ex?'－'+yen(ex):'')+'</span></div>';
     items.forEach(t=>{
       const nm=t.memo||t.category;const cls=t.type==='income'?'inc':'exp';
-      h+='<div class="mi-row tap" data-eid="'+t.id+'"><div class="mi-icon">'+catIcon(t.category)+'</div>'
+      h+='<div class="mi-row in-day tap" data-eid="'+t.id+'"><div class="mi-icon">'+catIcon(t.category)+'</div>'
         +'<div class="mi-info"><span class="mi-name">'+esc(nm)+'</span>'+(t.memo?'<span class="mi-cat">'+esc(t.category)+'</span>':'')+'</div>'
         +'<div class="mi-amt '+cls+'">'+(t.type==='income'?'+':'－')+yen(t.amount)+'</div></div>';
     });
