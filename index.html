@@ -131,6 +131,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mi-amt{font-size:13px;font-weight:700;flex-shrink:0}
 .mi-amt.exp{color:var(--exp)}.mi-amt.inc{color:var(--inc)}
 .mi-fixed{font-size:10px;background:var(--s2);color:var(--t2);border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle}
+
+.dh{display:flex;align-items:baseline;gap:8px;padding:10px 2px 6px;border-bottom:1.5px solid var(--bd);margin-top:6px}
+.dh:first-child{margin-top:0}
+.dh-d{font-size:14px;font-weight:700}
+.dh-w{font-size:11px;color:var(--t2)}
+.dh-w.sat{color:var(--acc)}.dh-w.sun{color:var(--exp)}
+.dh-s{margin-left:auto;font-size:12px;font-weight:700;color:var(--exp)}
+.dh-i{font-size:12px;font-weight:700;color:var(--inc)}
+.mi-row.tap,.txi.tap,.fxi.tap{cursor:pointer}
+.mi-row.tap:active,.txi.tap:active,.fxi.tap:active{opacity:.6}
+.sug{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:-3px 0 9px}
+.sug::-webkit-scrollbar{display:none}
+.sug:empty{display:none}
+.sg{flex-shrink:0;padding:6px 10px;border:1.5px solid var(--bd);border-radius:16px;background:var(--s2);font:inherit;font-size:12px;color:var(--tx);cursor:pointer;white-space:nowrap}
+.sg small{color:var(--t2);margin-left:4px;font-size:11px}
+.sg:active{background:var(--acc);color:#fff}
+.btn-del{background:none;border:1.5px solid var(--exp);color:var(--exp);border-radius:11px;padding:12px;font:700 14px/1 inherit;cursor:pointer;width:100%}
+.btn-del.armed{background:var(--exp);color:#fff}
+.ed-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
 .bk-note{font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:10px}
 .bk-ta{width:100%;height:90px;padding:9px 10px;border:1.5px solid var(--bd);border-radius:9px;background:var(--s2);color:var(--tx);font:11px/1.4 ui-monospace,Menlo,monospace;outline:none;resize:vertical;margin-bottom:8px}
 .bk-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
@@ -177,7 +196,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="amtbox"><span class="yen">¥</span><input type="number" id="ainput" placeholder="0" inputmode="numeric" min="1"></div>
     <div class="slbl">カテゴリ</div>
     <div class="catgr" id="catgr"></div>
-    <input type="text" class="fi" id="memo" placeholder="メモ（任意）">
+    <input type="text" class="fi" id="memo" placeholder="メモ（任意）" autocomplete="off">
+    <div class="sug" id="memo-sug"></div>
     <input type="date" class="fi" id="datein">
     <button class="sbtn" id="add-btn">追加する</button>
   </div>
@@ -221,6 +241,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="modal-hdr"><h2>月の予算設定</h2><button id="modal-close" aria-label="閉じる">×</button></div>
     <div id="budget-inputs"></div>
     <button class="sbtn" id="save-budget" style="margin-top:6px">保存する</button>
+  </div>
+</div>
+
+
+<div class="modal-bg" id="ed-bg">
+  <div class="modal">
+    <div class="modal-hdr"><h2 id="ed-title">編集</h2><button id="ed-close" aria-label="閉じる">×</button></div>
+    <div class="tyrow" id="ed-tyrow">
+      <button class="tybtn" data-t="expense">支出</button>
+      <button class="tybtn" data-t="income">収入</button>
+    </div>
+    <div class="amtbox"><span class="yen">¥</span><input type="number" id="ed-amt" placeholder="0" inputmode="numeric" style="flex:1;font-size:26px;font-weight:700;border:none;background:transparent;color:var(--tx);font-family:inherit;outline:none;min-width:0"></div>
+    <div class="slbl">カテゴリ</div>
+    <div class="catgr" id="ed-catgr"></div>
+    <input type="text" class="fi" id="ed-memo" placeholder="メモ" autocomplete="off">
+    <input type="date" class="fi" id="ed-date">
+    <div class="ed-btns">
+      <button class="btn-del" id="ed-del">削除</button>
+      <button class="sbtn" id="ed-save" style="padding:12px">保存</button>
+    </div>
   </div>
 </div>
 
@@ -300,7 +340,7 @@ document.getElementById('add-btn').addEventListener('click',()=>{
   if(!selcat){toast('カテゴリを選んでください');return}
   const data=ld('kb');data.push({id:Date.now(),type:ctype,amount:a,category:selcat,memo:m,date:d});sv('kb',data);
   document.getElementById('ainput').value='';document.getElementById('memo').value='';document.getElementById('datein').value=today();
-  selcat='';renderMainCats();toast('追加しました ✓');
+  selcat='';renderMainCats();renderMemoSug();toast('追加しました ✓');
 });
 
 function renderQuick(){
@@ -356,6 +396,124 @@ document.getElementById('save-budget').addEventListener('click',()=>{
   if(document.getElementById('pg-sum').classList.contains('on'))renderSum();
   toast('予算を保存しました ✓');
 });
+
+
+/* ---------- 日ごとの明細 ---------- */
+const WD=['日','月','火','水','木','金','土'];
+function dayList(txs){
+  if(!txs.length)return'';
+  const g={};txs.forEach(t=>{(g[t.date]=g[t.date]||[]).push(t)});
+  let h='<div class="card" style="padding-top:8px"><div class="slbl" style="margin:2px 0 0">日ごとの明細</div>';
+  Object.keys(g).sort().reverse().forEach(d=>{
+    const[y,m,dd]=d.split('-').map(Number);const w=new Date(y,m-1,dd).getDay();
+    const items=g[d].slice().sort((a,b)=>b.id-a.id);
+    const ex=items.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+    const inc=items.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    h+='<div class="dh"><span class="dh-d">'+m+'/'+dd+'</span><span class="dh-w'+(w===6?' sat':w===0?' sun':'')+'">'+WD[w]+'</span>'
+      +'<span class="dh-s">'+(inc?'<span class="dh-i">+'+yen(inc)+'</span>　':'')+(ex?'－'+yen(ex):'')+'</span></div>';
+    items.forEach(t=>{
+      const nm=t.memo||t.category;const cls=t.type==='income'?'inc':'exp';
+      h+='<div class="mi-row tap" data-eid="'+t.id+'"><div class="mi-icon">'+catIcon(t.category)+'</div>'
+        +'<div class="mi-info"><span class="mi-name">'+esc(nm)+'</span>'+(t.memo?'<span class="mi-cat">'+esc(t.category)+'</span>':'')+'</div>'
+        +'<div class="mi-amt '+cls+'">'+(t.type==='income'?'+':'－')+yen(t.amount)+'</div></div>';
+    });
+  });
+  return h+'</div>';
+}
+function refreshView(){
+  const on=document.querySelector('.pg.on');if(!on)return;
+  const id=on.id.replace('pg-','');
+  if(id==='sum')renderSum();else if(id==='hist')renderHist();else if(id==='fixed')renderFixed();else if(id==='ov')renderOv();
+}
+function bindEdit(root){
+  root.querySelectorAll('[data-eid]').forEach(r=>r.addEventListener('click',()=>openEdit('tx',Number(r.dataset.eid))));
+  root.querySelectorAll('[data-fid]').forEach(r=>r.addEventListener('click',()=>openEdit('fx',Number(r.dataset.fid))));
+}
+
+/* ---------- 編集 ---------- */
+let edMode='tx',edId=0,edType='expense',edCat='',edArmed=false;
+function renderEdCats(){
+  const cats=edMode==='fx'?EC:(edType==='expense'?EC:IC);
+  mkCatGrid('ed-catgr',cats,()=>edCat,c=>{edCat=c;renderEdCats()});
+}
+function setEdType(t){
+  edType=t;document.querySelectorAll('#ed-tyrow .tybtn').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+}
+function openEdit(mode,id){
+  const list=ld(mode==='fx'?'kb_f':'kb',[]);const it=list.find(x=>x.id===id);if(!it)return;
+  edMode=mode;edId=id;edCat=it.category;edArmed=false;
+  const del=document.getElementById('ed-del');del.textContent='削除';del.classList.remove('armed');
+  document.getElementById('ed-title').textContent=mode==='fx'?'固定費を編集':'記録を編集';
+  document.getElementById('ed-tyrow').style.display=mode==='fx'?'none':'flex';
+  document.getElementById('ed-date').style.display=mode==='fx'?'none':'block';
+  document.getElementById('ed-memo').placeholder=mode==='fx'?'名称':'メモ';
+  document.getElementById('ed-amt').value=it.amount;
+  document.getElementById('ed-memo').value=mode==='fx'?it.name:(it.memo||'');
+  if(mode==='tx'){document.getElementById('ed-date').value=it.date;setEdType(it.type)}else setEdType('expense');
+  renderEdCats();
+  document.getElementById('ed-bg').classList.add('on');
+}
+function closeEdit(){document.getElementById('ed-bg').classList.remove('on')}
+document.querySelectorAll('#ed-tyrow .tybtn').forEach(b=>b.addEventListener('click',()=>{setEdType(b.dataset.t);edCat='';renderEdCats()}));
+document.getElementById('ed-close').addEventListener('click',closeEdit);
+document.getElementById('ed-bg').addEventListener('click',e=>{if(e.target.id==='ed-bg')closeEdit()});
+document.getElementById('ed-save').addEventListener('click',()=>{
+  const amt=parseInt(document.getElementById('ed-amt').value)||0;
+  const memo=document.getElementById('ed-memo').value.trim();
+  const date=document.getElementById('ed-date').value;
+  if(!amt){toast('金額を入力してください');return}
+  if(!edCat){toast('カテゴリを選んでください');return}
+  const key=edMode==='fx'?'kb_f':'kb';const list=ld(key,[]);const it=list.find(x=>x.id===edId);if(!it){closeEdit();return}
+  it.amount=amt;it.category=edCat;
+  if(edMode==='fx'){if(!memo){toast('名称を入力してください');return}it.name=memo}
+  else{if(!date){toast('日付を入力してください');return}it.type=edType;it.memo=memo;it.date=date}
+  sv(key,list);closeEdit();refreshView();toast('保存しました ✓');
+});
+document.getElementById('ed-del').addEventListener('click',()=>{
+  const b=document.getElementById('ed-del');
+  if(!edArmed){edArmed=true;b.textContent='もう一度押すと削除';b.classList.add('armed');return}
+  const key=edMode==='fx'?'kb_f':'kb';
+  sv(key,ld(key,[]).filter(x=>x.id!==edId));closeEdit();refreshView();toast('削除しました');
+});
+
+/* ---------- メモの入力候補 ---------- */
+function memoCandidates(q){
+  const map=new Map();
+  ld('kb',[]).forEach(t=>{
+    if(!t.memo)return;
+    const e=map.get(t.memo)||{memo:t.memo,n:0,last:t};
+    e.n++;if(t.date>e.last.date||(t.date===e.last.date&&t.id>e.last.id))e.last=t;
+    map.set(t.memo,e);
+  });
+  const ql=q.trim().toLowerCase();
+  let arr=[...map.values()];
+  if(ql)arr=arr.filter(e=>e.memo.toLowerCase().includes(ql)&&e.memo.toLowerCase()!==ql);
+  arr.sort((a,b)=>{
+    const pa=ql&&a.memo.toLowerCase().startsWith(ql)?0:1,pb=ql&&b.memo.toLowerCase().startsWith(ql)?0:1;
+    return pa-pb||b.n-a.n||b.last.date.localeCompare(a.last.date);
+  });
+  return arr.slice(0,6);
+}
+function setMainType(t){ctype=t;document.querySelectorAll('#mtyrow .tybtn').forEach(b=>b.classList.toggle('on',b.dataset.t===t))}
+function renderMemoSug(){
+  const el=document.getElementById('memo-sug');
+  const c=memoCandidates(document.getElementById('memo').value);
+  el.innerHTML=c.map((e,i)=>'<button type="button" class="sg" data-i="'+i+'">'+esc(e.memo)+'<small>'+yen(e.last.amount)+'</small></button>').join('');
+  el.querySelectorAll('.sg').forEach(b=>b.addEventListener('mousedown',ev=>ev.preventDefault()));
+  el.querySelectorAll('.sg').forEach(b=>b.addEventListener('click',()=>{
+    const e=c[Number(b.dataset.i)];
+    document.getElementById('memo').value=e.memo;
+    const ai=document.getElementById('ainput');
+    if(!ai.value)ai.value=e.last.amount;
+    if(!selcat){setMainType(e.last.type);selcat=e.last.category;renderMainCats()}
+    renderMemoSug();
+  }));
+}
+(function(){
+  const m=document.getElementById('memo');
+  m.addEventListener('input',renderMemoSug);
+  m.addEventListener('focus',renderMemoSug);
+})();
 
 /* ---------- バックアップ（書き出し / 取り込み） ---------- */
 const BK_FORMAT='kakeibo-backup';
@@ -494,31 +652,7 @@ function renderSum(){
     ${fxItems.map(f=>`<div class="brow"><div class="bcat">${catIcon(f.category)}</div><div class="bwrap" style="font-size:13px;color:var(--t2)">${esc(f.name)}</div><div class="bpct" style="color:var(--exp);font-size:12px">${yen(f.amount)}</div></div>`).join('')}
     <div style="text-align:right;font-size:13px;font-weight:700;color:var(--exp);margin-top:4px">合計 ${yen(fxTotal)}</div>
   </div>`;}
-  const itemsEl=document.getElementById('month-items');
-  const txsSorted=[...txs].sort((a,b)=>a.date.localeCompare(b.date));
-  let ihtml='';
-  if(txsSorted.length||fxItems.length){
-    ihtml='<div class="card"><div class="slbl" style="margin-bottom:8px">明細</div>';
-    fxItems.forEach(f=>{
-      ihtml+='<div class="mi-row"><div class="mi-date">固定</div>';
-      ihtml+='<div class="mi-icon">'+catIcon(f.category)+'</div>';
-      ihtml+='<div class="mi-info"><span class="mi-name">'+esc(f.name)+'<span class="mi-fixed">固定費</span></span><span class="mi-cat">'+esc(f.category)+'</span></div>';
-      ihtml+='<div class="mi-amt exp">－'+yen(f.amount)+'</div></div>';
-    });
-    txsSorted.forEach(t=>{
-      const dd=t.date.split('-');
-      const nm=t.memo||t.category;
-      const cls=t.type==='income'?'inc':'exp';
-      const sign=t.type==='income'?'+':'－';
-      ihtml+='<div class="mi-row"><div class="mi-date">'+parseInt(dd[1])+'/'+parseInt(dd[2])+'</div>';
-      ihtml+='<div class="mi-icon">'+catIcon(t.category)+'</div>';
-      ihtml+='<div class="mi-info"><span class="mi-name">'+esc(nm)+'</span>';
-      if(t.memo)ihtml+='<span class="mi-cat">'+esc(t.category)+'</span>';
-      ihtml+='</div><div class="mi-amt '+cls+'">'+sign+yen(t.amount)+'</div></div>';
-    });
-    ihtml+='</div>';
-  }
-  itemsEl.innerHTML=ihtml;
+  const itemsEl=document.getElementById('month-items');itemsEl.innerHTML=dayList(txs);bindEdit(itemsEl);
 }
 
 document.getElementById('show-fx-form').addEventListener('click',()=>{
@@ -540,7 +674,7 @@ function renderFixed(){
   if(!fx.length){el.innerHTML='<div class="empty"><div class="ei">🔁</div><p>まだ固定費がありません</p></div>';return}
   const total=fx.reduce((s,f)=>s+f.amount,0);
   el.innerHTML=fx.map(f=>`
-    <div class="fxi">
+    <div class="fxi tap" data-fid="${f.id}">
       <div class="fxicon">${catIcon(f.category)}</div>
       <div class="fxinfo"><div class="fxname">${esc(f.name)}</div><div class="fxsub">${esc(f.category)}</div></div>
       <div class="fxamt">${yen(f.amount)}</div>
@@ -548,8 +682,9 @@ function renderFixed(){
     </div>`).join('')
     +`<div style="text-align:right;font-size:14px;font-weight:700;color:var(--exp);margin-top:4px;padding:0 4px">月額合計 ${yen(total)}</div>`;
   el.querySelectorAll('.del-btn').forEach(b=>{
-    b.addEventListener('click',()=>{sv('kb_f',ld('kb_f',[]).filter(f=>f.id!==Number(b.dataset.id)));renderFixed();toast('削除しました')});
+    b.addEventListener('click',e=>{e.stopPropagation();sv('kb_f',ld('kb_f',[]).filter(f=>f.id!==Number(b.dataset.id)));renderFixed();toast('削除しました')});
   });
+  bindEdit(el);
 }
 
 function renderHist(){
@@ -561,7 +696,7 @@ function renderHist(){
     const[y,m]=mo.split('-');
     return`<div class="hgrp"><div class="hgtitle">${+y}年${+m}月</div>`
       +txs.map(t=>`
-        <div class="txi">
+        <div class="txi tap" data-eid="${t.id}">
           <div class="txicon">${catIcon(t.category)}</div>
           <div class="txinfo"><div class="txcat">${esc(t.category)}</div>${t.memo?`<div class="txmemo">${esc(t.memo)}</div>`:''}</div>
           <div class="txr">
@@ -572,8 +707,9 @@ function renderHist(){
         </div>`).join('')+'</div>';
   }).join('');
   el.querySelectorAll('.del-btn').forEach(b=>{
-    b.addEventListener('click',()=>{sv('kb',ld('kb',[]).filter(t=>t.id!==Number(b.dataset.id)));renderHist();toast('削除しました')});
+    b.addEventListener('click',e=>{e.stopPropagation();sv('kb',ld('kb',[]).filter(t=>t.id!==Number(b.dataset.id)));renderHist();toast('削除しました')});
   });
+  bindEdit(el);
 }
 
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2200)}
@@ -703,26 +839,7 @@ function renderSumFiltered(){
       +catFx.map(f=>'<div class="brow"><div class="bcat">'+catIcon(f.category)+'</div><div class="bwrap" style="font-size:13px;color:var(--t2)">'+esc(f.name)+'</div><div class="bpct" style="color:var(--exp);font-size:12px">'+yen(f.amount)+'</div></div>').join('')
       +'<div style="text-align:right;font-size:13px;font-weight:700;color:var(--exp);margin-top:4px">合計 '+yen(fxT)+'</div></div>';
   }
-  const itemsEl=document.getElementById('month-items');
-  const txsSorted=[...catTxs].sort((a,b)=>a.date.localeCompare(b.date));
-  let ihtml='';
-  if(txsSorted.length||catFx.length){
-    ihtml='<div class="card"><div class="slbl" style="margin-bottom:8px">明細</div>';
-    catFx.forEach(f=>{
-      ihtml+='<div class="mi-row"><div class="mi-date">固定</div><div class="mi-icon">'+catIcon(f.category)+'</div>';
-      ihtml+='<div class="mi-info"><span class="mi-name">'+esc(f.name)+'<span class="mi-fixed">固定費</span></span></div>';
-      ihtml+='<div class="mi-amt exp">－'+yen(f.amount)+'</div></div>';
-    });
-    txsSorted.forEach(t=>{
-      const dd=t.date.split('-');const nm=t.memo||t.category;
-      ihtml+='<div class="mi-row"><div class="mi-date">'+parseInt(dd[1])+'/'+parseInt(dd[2])+'</div><div class="mi-icon">'+catIcon(t.category)+'</div>';
-      ihtml+='<div class="mi-info"><span class="mi-name">'+esc(nm)+'</span>';
-      if(t.memo)ihtml+='<span class="mi-cat">'+esc(t.category)+'</span>';
-      ihtml+='</div><div class="mi-amt exp">－'+yen(t.amount)+'</div></div>';
-    });
-    ihtml+='</div>';
-  }
-  itemsEl.innerHTML=ihtml;
+  const itemsEl=document.getElementById('month-items');itemsEl.innerHTML=dayList(catTxs);bindEdit(itemsEl);
 }
 renderMainCats();renderQuick();
 

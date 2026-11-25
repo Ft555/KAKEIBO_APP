@@ -1,6 +1,6 @@
 // オフライン用 Service Worker：一度開けば以降はネット無しで起動できる
 // アプリを更新したら CACHE のバージョンを上げる（例: kakeibo-v2）
-const CACHE = 'kakeibo-v1';
+const CACHE = 'kakeibo-v2';
 const FILES = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
