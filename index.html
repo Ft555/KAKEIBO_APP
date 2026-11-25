@@ -286,7 +286,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
-const EC=[['🛒','食費'],['🍜','外食'],['🚃','交通費'],['💡','光熱費'],['📱','通信費'],['🧴','日用品'],['🎮','娯楽'],['👗','衣服・美容'],['💊','医療'],['📦','その他']];
+const EC=[['🛒','食費'],['🍜','外食'],['🚃','交通費'],['💡','光熱費'],['📱','通信費'],['🧴','日用品'],['🎮','娯楽'],['👗','衣服・美容'],['💊','医療'],['🏠','住居・返済'],['🤝','交際費'],['📚','自己投資費'],['📦','その他']];
 const IC=[['💰','給与'],['💼','副収入'],['📥','その他']];
 const ALL=[...EC,...IC];
 function ld(k,d=[]){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}}
@@ -296,6 +296,17 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;',
 function fdate(s){const[,m,d]=s.split('-');return`${+m}月${+d}日`}
 function today(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function catIcon(c){return(ALL.find(([,n])=>n===c)||['📦'])[0]}
+
+/* 1回だけ: 「その他」に入っていた明細を新カテゴリへ移す（名前・メモで判定） */
+(function(){
+  if(localStorage.getItem('kb_mig1'))return;
+  const rules=[[/寮費|家賃|奨学金|返済|住居/,'住居・返済'],[/claude|google\s*ai|chatgpt|gpt|gemini|copilot|cursor|書籍|参考書|講座|学習|udemy/i,'自己投資費'],[/テニス|飲み会|プレゼント|ご祝儀|交際/,'交際費']];
+  const mv=(list,txt)=>{let n=0;list.forEach(x=>{if(x.category==='その他'&&(x.type===undefined||x.type==='expense')){const r=rules.find(([re])=>re.test(txt(x)));if(r){x.category=r[1];n++}}});return n};
+  const a=ld('kb',[]),f=ld('kb_f',[]),q=ld('kb_q',[]);
+  const n=mv(a,x=>x.memo||'')+mv(f,x=>x.name||'')+mv(q,x=>x.label||x.memo||'');
+  if(n){sv('kb',a);sv('kb_f',f);sv('kb_q',q)}
+  localStorage.setItem('kb_mig1','1');
+})();
 
 let ctype='expense',selcat='',qtype='expense',qselcat='',fxselcat='';
 let vm=new Date();vm=new Date(vm.getFullYear(),vm.getMonth(),1);
